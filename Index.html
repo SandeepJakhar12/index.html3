@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XARVIS Mobile Voice</title>
+<style>
+body { background: #111; color: #0f0; font-family: monospace; padding: 20px; }
+#output { min-height: 300px; border: 1px solid #0f0; padding: 10px; margin-top: 10px; overflow-y:auto; white-space: pre-wrap;}
+input { width: 100%; padding: 10px; margin-top: 10px; background: #222; color: #0f0; border: 1px solid #0f0; }
+button { padding: 10px; margin-top: 5px; background: #0f0; color: #111; border: none; width: 100%; }
+.quick-btn { margin-top:5px; width:32%; display:inline-block; background:#0f0; color:#111; border:none; padding:10px; text-align:center; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<h2>XARVIS Mobile Ultimate</h2>
+<div id="output">System online. Awaiting commands, Sir...</div>
+
+<!-- Voice Input Button -->
+<button onclick="startListening()">🎤 Speak Command</button>
+
+<!-- Quick Command Buttons -->
+<div>
+  <button class="quick-btn" onclick="sendCommand('status')">Status</button>
+  <button class="quick-btn" onclick="sendCommand('focus')">Focus</button>
+  <button class="quick-btn" onclick="sendCommand('tasks')">Tasks</button>
+  <button class="quick-btn" onclick="sendCommand('routine')">Routine</button>
+</div>
+
+<input type="text" id="command" placeholder="Type command here..." />
+<button onclick="processCommand()">Send</button>
+
+<script>
+// Memory
+let shortMemory = JSON.parse(localStorage.getItem('shortMemory')) || [];
+let longMemory = JSON.parse(localStorage.getItem('longMemory')) || [];
+let dailyRoutine = JSON.parse(localStorage.getItem('dailyRoutine')) || [];
+
+// Save memory
+function saveMemory(){
+  localStorage.setItem('shortMemory', JSON.stringify(shortMemory));
+  localStorage.setItem('longMemory', JSON.stringify(longMemory));
+  localStorage.setItem('dailyRoutine', JSON.stringify(dailyRoutine));
+}
+
+// TTS
+function speak(text){
+  if('speechSynthesis' in window){
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'en-US';
+    window.speechSynthesis.speak(msg);
+  }
+}
+
+// Core command processing
+function processCommand(inputText){
+  const input = inputText || document.getElementById('command').value.toLowerCase();
+  if(!input) return;
+
+  shortMemory.push(input);
+  if(shortMemory.length>10) shortMemory.shift();
+
+  if(input.includes("task:")){
+    const task = input.replace("task:","").trim();
+    if(task) longMemory.push(task);
+  }
+
+  if(input.includes("routine:")){
+    const routine = input.replace("routine:","").trim();
+    if(routine) dailyRoutine.push(routine);
+  }
+
+  let reply = "Command unclear, Sir.";
+
+  if(input.includes("status")) reply="All systems operational, Sir.";
+  else if(input.includes("focus")) reply = dailyRoutine.length ? `Focus on: ${dailyRoutine[0]}` : "No routine task set, Sir.";
+  else if(input.includes("memory")) reply=`Recent commands: ${shortMemory.join(", ")}`;
+  else if(input.includes("tasks")) reply = longMemory.length ? `Tasks: ${longMemory.join(", ")}` : "No tasks stored, Sir.";
+  else if(input.includes("routine")) reply = dailyRoutine.length ? `Daily routine: ${dailyRoutine.join(", ")}` : "No routine set, Sir.";
+  else if(input.includes("clear tasks")) { longMemory=[]; reply="All tasks cleared, Sir.";}
+  else if(input.includes("clear routine")) { dailyRoutine=[]; reply="Daily routine cleared, Sir.";}
+  else if(input.includes("hello")) reply="Hello, Sir. How can I assist today?";
+  else if(input.includes("plan")) reply = longMemory.length ? `Next task: ${longMemory[0]}` : "No pending tasks, Sir.";
+
+  saveMemory();
+  document.getElementById('output').innerText = reply;
+  speak(reply);
+  document.getElementById('command').value="";
+}
+
+// Quick button helper
+function sendCommand(cmd){ processCommand(cmd); }
+
+// Voice input
+function startListening(){
+  if(!('webkitSpeechRecognition' in window)){
+    alert("Your browser does not support voice recognition, Sir.");
+    return;
+  }
+  const recognition = new webkitSpeechRecognition();
+  recognition.lang='en-US';
+  recognition.start();
+  recognition.onresult = function(event){
+    const speech = event.results[0][0].transcript.toLowerCase();
+    processCommand(speech);
+  }
+}
+</script>
+
+</body>
+</html>
